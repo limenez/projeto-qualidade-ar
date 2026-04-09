@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Qualidade do Ar em Cidades Brasileiras</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&family=DM+Mono:wght@400;500&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1e2530;
+    --border: rgba(255,255,255,0.07);
+    --text: #e6edf3;
+    --muted: #7d8590;
+    --accent: #58a6ff;
+    --red: #f85149;
+    --orange: #fb8c00;
+    --green: #3fb950;
+    --purple: #bc8cff;
+    --teal: #39d353;
+    --yellow: #e3b341;
+    --mp25: #f85149;
+    --mp10: #fb8c00;
+    --o3: #bc8cff;
+    --no2: #58a6ff;
+    --co: #3fb950;
+    --so2: #8d6748;
+    --sp: #f85149;
+    --campinas: #fb8c00;
+    --santos: #3fb950;
+    --sorocaba: #58a6ff;
+    --sjc: #bc8cff;
+    --r: 1rem;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Header ── */
+  .header {
+    background: linear-gradient(135deg, #0d1117 0%, #161b22 50%, #1a2332 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 2rem 2.5rem 1.5rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse 60% 80% at 80% 50%, rgba(88,166,255,0.06) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .header-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(88,166,255,0.12); border: 1px solid rgba(88,166,255,0.25);
+    color: var(--accent); border-radius: 20px;
+    font-size: 11px; font-weight: 500; letter-spacing: 0.08em;
+    padding: 4px 12px; text-transform: uppercase; margin-bottom: 1rem;
+  }
+  .header-badge::before { content: '●'; font-size: 7px; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .header h1 {
+    font-size: clamp(1.4rem, 3vw, 2rem); font-weight: 600;
+    letter-spacing: -0.02em; line-height: 1.2; margin-bottom: 0.4rem;
+  }
+  .header p { color: var(--muted); font-size: 0.875rem; font-weight: 300; }
+  .header-meta {
+    display: flex; gap: 1.5rem; margin-top: 1.2rem; flex-wrap: wrap;
+  }
+  .meta-item { font-size: 0.78rem; color: var(--muted); }
+  .meta-item span { color: var(--text); font-weight: 500; }
+
+  /* ── Nav tabs ── */
+  .nav { 
+    display: flex; gap: 0; padding: 0 2.5rem;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+  .nav-btn {
+    background: none; border: none; color: var(--muted);
+    font-family: inherit; font-size: 0.85rem; font-weight: 500;
+    padding: 0.9rem 1.25rem; cursor: pointer; border-bottom: 2px solid transparent;
+    transition: all 0.15s; white-space: nowrap;
+  }
+  .nav-btn:hover { color: var(--text); }
+  .nav-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ── Main layout ── */
+  .main { padding: 1.75rem 2.5rem; max-width: 1400px; }
+
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ── KPI cards ── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1rem; margin-bottom: 1.75rem;
+  }
+  .kpi {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 1.1rem 1.25rem;
+    position: relative; overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .kpi:hover { border-color: rgba(255,255,255,0.14); }
+  .kpi::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  }
+  .kpi.red::before   { background: var(--red); }
+  .kpi.orange::before{ background: var(--orange); }
+  .kpi.green::before { background: var(--green); }
+  .kpi.blue::before  { background: var(--accent); }
+  .kpi.purple::before{ background: var(--purple); }
+  .kpi.yellow::before{ background: var(--yellow); }
+  .kpi-label { font-size: 0.72rem; color: var(--muted); font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 0.5rem; }
+  .kpi-value { font-size: 1.7rem; font-weight: 600; letter-spacing: -0.03em; line-height: 1; }
+  .kpi-value.red    { color: var(--red); }
+  .kpi-value.orange { color: var(--orange); }
+  .kpi-value.green  { color: var(--green); }
+  .kpi-value.blue   { color: var(--accent); }
+  .kpi-value.purple { color: var(--purple); }
+  .kpi-value.yellow { color: var(--yellow); }
+  .kpi-sub { font-size: 0.72rem; color: var(--muted); margin-top: 0.35rem; }
+
+  /* ── Chart cards ── */
+  .chart-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 1fr));
+    gap: 1.25rem; margin-bottom: 1.75rem;
+  }
+  .chart-grid.full { grid-template-columns: 1fr; }
+  .chart-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 1.25rem 1.5rem;
+  }
+  .chart-title {
+    font-size: 0.85rem; font-weight: 600; color: var(--text);
+    margin-bottom: 0.25rem; letter-spacing: -0.01em;
+  }
+  .chart-sub { font-size: 0.75rem; color: var(--muted); margin-bottom: 1.1rem; }
+  .chart-wrap { position: relative; }
+
+  /* ── Insight cards ── */
+  .insight-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.75rem; }
+  @media (max-width: 768px) { .insight-grid { grid-template-columns: 1fr; } }
+  .insight {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 1.1rem 1.25rem;
+    border-left: 3px solid;
+  }
+  .insight-num { font-family: 'DM Mono', monospace; font-size: 0.7rem; color: var(--muted); margin-bottom: 0.4rem; }
+  .insight-title { font-size: 0.875rem; font-weight: 600; margin-bottom: 0.45rem; line-height: 1.35; }
+  .insight-body { font-size: 0.8rem; color: var(--muted); line-height: 1.6; font-weight: 300; }
+
+  /* ── Action table ── */
+  .action-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  .action-table th {
+    background: var(--surface2); color: var(--muted); font-weight: 500;
+    font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em;
+    padding: 0.65rem 1rem; text-align: left; border-bottom: 1px solid var(--border);
+  }
+  .action-table td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .action-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .tag {
+    display: inline-block; font-size: 0.7rem; font-weight: 500;
+    padding: 2px 8px; border-radius: 4px; white-space: nowrap;
+  }
+  .tag.curto  { background: rgba(63,185,80,0.15);  color: var(--green); }
+  .tag.medio  { background: rgba(88,166,255,0.15); color: var(--accent); }
+  .tag.longo  { background: rgba(188,140,255,0.15);color: var(--purple); }
+  .tag.alto   { background: rgba(248,81,73,0.15);  color: var(--red); }
+  .tag.medio-i{ background: rgba(251,140,0,0.15);  color: var(--orange); }
+
+  /* ── Section heading ── */
+  .section-title {
+    font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 1rem;
+    padding-bottom: 0.5rem; border-bottom: 1px solid var(--border);
+  }
+
+  /* ── Filters ── */
+  .filter-bar { display: flex; gap: 0.75rem; margin-bottom: 1.25rem; flex-wrap: wrap; align-items: center; }
+  .filter-label { font-size: 0.75rem; color: var(--muted); }
+  .filter-btn {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
+    font-family: inherit; font-size: 0.78rem; font-weight: 500;
+    padding: 0.35rem 0.85rem; border-radius: 6px; cursor: pointer; transition: all 0.15s;
+  }
+  .filter-btn:hover { border-color: rgba(255,255,255,0.15); color: var(--text); }
+  .filter-btn.active { background: var(--accent); border-color: var(--accent); color: #0d1117; }
+
+  /* ── OMS bar ── */
+  .oms-bars { display: flex; flex-direction: column; gap: 0.6rem; }
+  .oms-row { display: flex; align-items: center; gap: 0.75rem; }
+  .oms-label { font-size: 0.78rem; font-family: 'DM Mono', monospace; width: 40px; color: var(--muted); }
+  .oms-track { flex: 1; height: 10px; background: rgba(255,255,255,0.06); border-radius: 5px; overflow: hidden; }
+  .oms-fill { height: 100%; border-radius: 5px; transition: width 0.8s ease; }
+  .oms-pct { font-size: 0.75rem; font-family: 'DM Mono', monospace; width: 42px; text-align: right; }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-badge">Projeto Semantix · Etapa 5</div>
+  <h1>Qualidade do Ar em Cidades Brasileiras</h1>
+  <p>Dashboard de análise exploratória de dados atmosféricos e impacto na saúde pública</p>
+  <div class="header-meta">
+    <div class="meta-item">Período: <span>2019 – 2023</span></div>
+    <div class="meta-item">Cidades: <span>5 municípios do Estado de SP</span></div>
+    <div class="meta-item">Registros: <span>9.130 dias analisados</span></div>
+    <div class="meta-item">Fonte: <span>CETESB · OpenAQ · DataSUS · INMET</span></div>
+  </div>
+</div>
+
+<nav class="nav">
+  <button class="nav-btn active" onclick="showPage('visao-geral', this)">Visão Geral</button>
+  <button class="nav-btn" onclick="showPage('serie-temporal', this)">Série Temporal</button>
+  <button class="nav-btn" onclick="showPage('sazonalidade', this)">Sazonalidade</button>
+  <button class="nav-btn" onclick="showPage('saude', this)">Saúde Pública</button>
+  <button class="nav-btn" onclick="showPage('insights', this)">Insights</button>
+  <button class="nav-btn" onclick="showPage('acoes', this)">Ações</button>
+</nav>
+
+<div class="main">
+
+  <!-- ══ VISÃO GERAL ══════════════════════════════════════════ -->
+  <div class="page active" id="page-visao-geral">
+
+    <div class="kpi-grid">
+      <div class="kpi red">
+        <div class="kpi-label">MP2,5 médio — SP</div>
+        <div class="kpi-value red">34,5</div>
+        <div class="kpi-sub">μg/m³ · 2,3× o limite OMS</div>
+      </div>
+      <div class="kpi orange">
+        <div class="kpi-label">Dias acima OMS (MP2,5)</div>
+        <div class="kpi-value orange">70,5%</div>
+        <div class="kpi-sub">de todos os dias monitorados</div>
+      </div>
+      <div class="kpi purple">
+        <div class="kpi-label">Correlação MP2,5 × Internações</div>
+        <div class="kpi-value purple">r = 0,38</div>
+        <div class="kpi-sub">p &lt; 0,001 · todas as cidades</div>
+      </div>
+      <div class="kpi green">
+        <div class="kpi-label">Redução NO₂ fim de semana</div>
+        <div class="kpi-value green">−28,9%</div>
+        <div class="kpi-sub">impacto direto do tráfego</div>
+      </div>
+      <div class="kpi blue">
+        <div class="kpi-label">Média de internações/dia</div>
+        <div class="kpi-value blue">21,4</div>
+        <div class="kpi-sub">internações respiratórias</div>
+      </div>
+      <div class="kpi yellow">
+        <div class="kpi-label">Pico de MP2,5 sazonal</div>
+        <div class="kpi-value yellow">+18</div>
+        <div class="kpi-sub">μg/m³ extras · ago–set (queimadas)</div>
+      </div>
+    </div>
+
+    <p class="section-title">Poluentes acima do limite OMS — todas as cidades, 2019–2023</p>
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-title">% de dias acima do limite OMS por poluente</div>
+        <div class="chart-sub">Proporção de dias com concentração acima do padrão recomendado</div>
+        <div class="oms-bars" id="oms-bars"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">MP2,5 médio por cidade (2019–2023)</div>
+        <div class="chart-sub">Linha tracejada = limite OMS (15 μg/m³)</div>
+        <div class="chart-wrap"><canvas id="chart-mp25-cidade" height="220"></canvas></div>
+      </div>
+    </div>
+
+    <p class="section-title">Distribuição dos poluentes por cidade</p>
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-title">Comparação geral dos poluentes — médias por cidade</div>
+        <div class="chart-sub">Radar normalizado (% do limite OMS)</div>
+        <div class="chart-wrap"><canvas id="chart-radar" height="260"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Internações respiratórias médias por cidade</div>
+        <div class="chart-sub">Média diária de internações 2019–2023</div>
+        <div class="chart-wrap"><canvas id="chart-internacoes" height="260"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SÉRIE TEMPORAL ══════════════════════════════════════ -->
+  <div class="page" id="page-serie-temporal">
+    <div class="filter-bar">
+      <span class="filter-label">Cidade:</span>
+      <button class="filter-btn active" onclick="setCity('todas', this)">Todas</button>
+      <button class="filter-btn" onclick="setCity('São Paulo', this)">São Paulo</button>
+      <button class="filter-btn" onclick="setCity('Campinas', this)">Campinas</button>
+      <button class="filter-btn" onclick="setCity('Santos', this)">Santos</button>
+      <button class="filter-btn" onclick="setCity('Sorocaba', this)">Sorocaba</button>
+      <button class="filter-btn" onclick="setCity('São José dos Campos', this)">São José dos Campos</button>
+    </div>
+
+    <div class="chart-grid full">
+      <div class="chart-card">
+        <div class="chart-title">Série temporal mensal de MP2,5 — todas as cidades</div>
+        <div class="chart-sub">Média mensal por cidade · linha vermelha = limite OMS (15 μg/m³) · sombreado = período de queimadas (ago–set)</div>
+        <div class="chart-wrap"><canvas id="chart-serie" height="200"></canvas></div>
+      </div>
+    </div>
+
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-title">Dias acima do limite OMS por cidade / ano</div>
+        <div class="chart-sub">Número de dias com MP2,5 &gt; 15 μg/m³</div>
+        <div class="chart-wrap"><canvas id="chart-dias-oms" height="240"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Evolução anual do MP2,5 médio</div>
+        <div class="chart-sub">Tendência 2019–2023 por cidade</div>
+        <div class="chart-wrap"><canvas id="chart-tendencia" height="240"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SAZONALIDADE ════════════════════════════════════════ -->
+  <div class="page" id="page-sazonalidade">
+    <div class="chart-grid full">
+      <div class="chart-card">
+        <div class="chart-title">Média mensal de MP2,5 — perfil sazonal</div>
+        <div class="chart-sub">Pico no inverno (jun–ago) pelo efeito da estagnação atmosférica e queimadas</div>
+        <div class="chart-wrap"><canvas id="chart-sazon-mp25" height="180"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-title">Sazonalidade do Ozônio (O₃)</div>
+        <div class="chart-sub">Pico no verão pela maior radiação solar — comportamento inverso ao MP2,5</div>
+        <div class="chart-wrap"><canvas id="chart-sazon-o3" height="240"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">NO₂ por dia da semana</div>
+        <div class="chart-sub">Queda pronunciada nos fins de semana evidencia impacto do tráfego</div>
+        <div class="chart-wrap"><canvas id="chart-fds" height="240"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SAÚDE ══════════════════════════════════════════════ -->
+  <div class="page" id="page-saude">
+    <div class="kpi-grid">
+      <div class="kpi red">
+        <div class="kpi-label">Correlação MP2,5 × intern. (SP)</div>
+        <div class="kpi-value red">r = 0,34</div>
+        <div class="kpi-sub">p &lt; 0,001 · com lag de 2 dias</div>
+      </div>
+      <div class="kpi orange">
+        <div class="kpi-label">Correlação MP2,5 × intern. (Campinas)</div>
+        <div class="kpi-value orange">r = 0,39</div>
+        <div class="kpi-sub">p &lt; 0,001</div>
+      </div>
+      <div class="kpi purple">
+        <div class="kpi-label">+10 μg/m³ MP2,5 →</div>
+        <div class="kpi-value purple">+4,5</div>
+        <div class="kpi-sub">internações resp. estimadas/dia</div>
+      </div>
+      <div class="kpi blue">
+        <div class="kpi-label">Dias MP10 &gt; OMS</div>
+        <div class="kpi-value blue">43,4%</div>
+        <div class="kpi-sub">de todos os dias monitorados</div>
+      </div>
+    </div>
+
+    <div class="chart-grid full">
+      <div class="chart-card">
+        <div class="chart-title">Relação entre MP2,5 e internações respiratórias — médias mensais</div>
+        <div class="chart-sub">Cada ponto = média mensal de todas as cidades · tendência de regressão linear</div>
+        <div class="chart-wrap"><canvas id="chart-scatter" height="200"></canvas></div>
+      </div>
+    </div>
+
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-title">Internações médias por cidade e ano</div>
+        <div class="chart-sub">Média diária de internações respiratórias</div>
+        <div class="chart-wrap"><canvas id="chart-intern-anual" height="240"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">NO₂: semana × fim de semana</div>
+        <div class="chart-sub">Redução percentual de NO₂ e CO fora do horário de pico de tráfego</div>
+        <div class="chart-wrap"><canvas id="chart-fds-saude" height="240"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ INSIGHTS ═══════════════════════════════════════════ -->
+  <div class="page" id="page-insights">
+    <div class="insight-grid">
+      <div class="insight" style="border-left-color:var(--red)">
+        <div class="insight-num">INSIGHT 01 · EXPOSIÇÃO CRÔNICA</div>
+        <div class="insight-title" style="color:var(--red)">São Paulo em estado crítico permanente</div>
+        <div class="insight-body">MP2,5 médio de 34,5 μg/m³ — 2,3× o limite OMS. Nenhum dos cinco anos analisados ficou dentro do padrão. A exposição crônica é a norma, não a exceção.</div>
+      </div>
+      <div class="insight" style="border-left-color:var(--orange)">
+        <div class="insight-num">INSIGHT 02 · ULTRAPASSAGENS FREQUENTES</div>
+        <div class="insight-title" style="color:var(--orange)">70,5% dos dias acima do limite OMS</div>
+        <div class="insight-body">Mesmo Santos, a cidade com melhor desempenho, ultrapassou o limite em 43,5% dos dias. Não existe período seguro consistente ao longo do ano.</div>
+      </div>
+      <div class="insight" style="border-left-color:var(--accent)">
+        <div class="insight-num">INSIGHT 03 · QUEIMADAS</div>
+        <div class="insight-title" style="color:var(--accent)">Queimadas elevam MP2,5 em até 25 μg/m³</div>
+        <div class="insight-body">Nos meses de agosto e setembro, a fumaça de queimadas externas ao estado intensifica um cenário já crítico — em condições de baixa umidade do inverno.</div>
+      </div>
+      <div class="insight" style="border-left-color:var(--green)">
+        <div class="insight-num">INSIGHT 04 · TRÁFEGO VEICULAR</div>
+        <div class="insight-title" style="color:var(--green)">Tráfego é o principal emissor de NO₂ e CO</div>
+        <div class="insight-body">A redução de 28,9% no NO₂ e 33,3% no CO nos fins de semana prova a responsabilidade dos veículos. Em SP, o NO₂ cai 30,3% no fim de semana.</div>
+      </div>
+      <div class="insight" style="border-left-color:var(--purple)">
+        <div class="insight-num">INSIGHT 05 · IMPACTO NA SAÚDE</div>
+        <div class="insight-title" style="color:var(--purple)">MP2,5 correlacionado com internações (r=0,38***)</div>
+        <div class="insight-body">Cada aumento de 10 μg/m³ no MP2,5 está associado a ~4,5 internações respiratórias extras por cidade por dia, com lag de 2 dias.</div>
+      </div>
+      <div class="insight" style="border-left-color:var(--teal)">
+        <div class="insight-num">INSIGHT 06 · SAZONALIDADE DUPLA</div>
+        <div class="insight-title" style="color:var(--teal)">Ozônio e MP2,5 mantêm risco o ano todo</div>
+        <div class="insight-body">MP2,5 e NO₂ têm pico no inverno; o ozônio (O₃) tem pico no verão. Esse padrão sazonal complementar não deixa janela de ar limpo ao longo do ano.</div>
+      </div>
+    </div>
+
+    <p class="section-title">Síntese dos achados</p>
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-title">% de dias acima do limite OMS — por poluente e cidade</div>
+        <div class="chart-sub">Barras agrupadas por cidade · destaque para MP2,5 e MP10</div>
+        <div class="chart-wrap"><canvas id="chart-ultrapassagens" height="260"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Matriz de impacto dos insights</div>
+        <div class="chart-sub">Urgência vs. Impacto potencial de cada achado</div>
+        <div class="chart-wrap"><canvas id="chart-matriz" height="260"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ AÇÕES ═══════════════════════════════════════════════ -->
+  <div class="page" id="page-acoes">
+    <p class="section-title">Plano de ações recomendadas — baseado nos insights da EDA</p>
+    <div class="chart-card" style="margin-bottom:1.5rem; overflow-x:auto;">
+      <table class="action-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Ação recomendada</th>
+            <th>Responsável</th>
+            <th>Prazo</th>
+            <th>Impacto esperado</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td>Expandir rede de monitoramento para além de SP</td><td>CETESB / Municípios</td><td><span class="tag curto">Curto</span></td><td><span class="tag alto">Dados completos</span></td></tr>
+          <tr><td>2</td><td>Implementar alertas públicos de qualidade do ar (SMS / app)</td><td>CETESB / Saúde</td><td><span class="tag curto">Curto</span></td><td><span class="tag alto">Proteção vulneráveis</span></td></tr>
+          <tr><td>3</td><td>Ampliar inspeção veicular e eliminar frotas fora do padrão</td><td>DETRAN / CETESB</td><td><span class="tag medio">Médio</span></td><td><span class="tag alto">−15 a 25% NO₂/CO</span></td></tr>
+          <tr><td>4</td><td>Expandir frota de ônibus elétricos e incentivar ciclomobilidade</td><td>Municípios / Estado</td><td><span class="tag medio">Médio</span></td><td><span class="tag medio-i">Emissões transporte</span></td></tr>
+          <tr><td>5</td><td>Criar Zonas de Baixa Emissão (ZBE) nos centros mais poluídos</td><td>Municípios</td><td><span class="tag medio">Médio</span></td><td><span class="tag medio-i">Localizado e direto</span></td></tr>
+          <tr><td>6</td><td>Articular política federal de combate a queimadas (ago–set)</td><td>Federal / Estadual</td><td><span class="tag longo">Longo</span></td><td><span class="tag alto">−10 a 30% MP2,5 sazonal</span></td></tr>
+          <tr><td>7</td><td>Painel público online com dados de qualidade do ar em tempo real</td><td>CETESB / Gov. SP</td><td><span class="tag curto">Curto</span></td><td><span class="tag medio-i">Engajamento cidadão</span></td></tr>
+          <tr><td>8</td><td>Integrar dados de saúde e qualidade do ar no SUS para vigilância epidemiológica</td><td>DataSUS / Min. Saúde</td><td><span class="tag longo">Longo</span></td><td><span class="tag alto">Políticas baseadas em evidências</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-title">Ações por prazo e impacto</div>
+        <div class="chart-sub">Distribuição das 8 ações recomendadas</div>
+        <div class="chart-wrap"><canvas id="chart-acoes-prazo" height="240"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Potencial de redução de MP2,5 por eixo de ação</div>
+        <div class="chart-sub">Estimativa de redução percentual por categoria</div>
+        <div class="chart-wrap"><canvas id="chart-reducao" height="240"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /.main -->
+
+<script>
+// ── DATA ─────────────────────────────────────────────────────────────────────
+const DATA = {
+  cidades: ["São Paulo","Campinas","Santos","Sorocaba","São José dos Campos"],
+  cores: { "São Paulo":"#f85149","Campinas":"#fb8c00","Santos":"#3fb950","Sorocaba":"#58a6ff","São José dos Campos":"#bc8cff" },
+  poluentes: ["MP25","MP10","O3","NO2","CO","SO2"],
+  limites: { MP25:15, MP10:45, O3:100, NO2:40, CO:4, SO2:40 },
+  pct_oms: { MP25:70.5, MP10:43.4, O3:8.2, NO2:13.8, CO:13.5, SO2:0.1 },
+  cores_pol: { MP25:"#f85149", MP10:"#fb8c00", O3:"#bc8cff", NO2:"#58a6ff", CO:"#3fb950", SO2:"#8d6748" },
+  medias: {
+    "São Paulo":      { MP25:34.5, MP10:63.5, O3:64.2, NO2:33.5, CO:3.0, SO2:8.2, internacoes:25.2 },
+    "Campinas":       { MP25:26.4, MP10:48.5, O3:61.3, NO2:25.2, CO:2.3, SO2:6.1, internacoes:21.4 },
+    "Santos":         { MP25:21.5, MP10:39.2, O3:57.8, NO2:19.5, CO:1.9, SO2:5.2, internacoes:19.2 },
+    "Sorocaba":       { MP25:23.6, MP10:43.1, O3:60.1, NO2:22.4, CO:2.1, SO2:5.8, internacoes:20.3 },
+    "São José dos Campos":{ MP25:25.4, MP10:46.0, O3:62.2, NO2:24.3, CO:2.2, SO2:6.0, internacoes:20.9 },
+  },
+  anual: [
+    {cidade:"São Paulo",      ano:2019,MP25_med:34.0,dias_acima_oms:319,internacoes_med:25.0},
+    {cidade:"São Paulo",      ano:2020,MP25_med:33.3,dias_acima_oms:307,internacoes_med:24.6},
+    {cidade:"São Paulo",      ano:2021,MP25_med:35.8,dias_acima_oms:326,internacoes_med:25.8},
+    {cidade:"São Paulo",      ano:2022,MP25_med:34.9,dias_acima_oms:327,internacoes_med:25.3},
+    {cidade:"São Paulo",      ano:2023,MP25_med:34.6,dias_acima_oms:309,internacoes_med:25.2},
+    {cidade:"Campinas",       ano:2019,MP25_med:26.1,dias_acima_oms:259,internacoes_med:20.8},
+    {cidade:"Campinas",       ano:2020,MP25_med:26.8,dias_acima_oms:264,internacoes_med:21.8},
+    {cidade:"Campinas",       ano:2021,MP25_med:26.1,dias_acima_oms:266,internacoes_med:21.0},
+    {cidade:"Campinas",       ano:2022,MP25_med:27.0,dias_acima_oms:272,internacoes_med:21.8},
+    {cidade:"Campinas",       ano:2023,MP25_med:26.2,dias_acima_oms:271,internacoes_med:21.5},
+    {cidade:"Santos",         ano:2019,MP25_med:22.1,dias_acima_oms:228,internacoes_med:19.5},
+    {cidade:"Santos",         ano:2020,MP25_med:22.0,dias_acima_oms:210,internacoes_med:19.7},
+    {cidade:"Santos",         ano:2021,MP25_med:21.0,dias_acima_oms:223,internacoes_med:18.8},
+    {cidade:"Santos",         ano:2022,MP25_med:21.4,dias_acima_oms:198,internacoes_med:19.3},
+    {cidade:"Santos",         ano:2023,MP25_med:21.1,dias_acima_oms:213,internacoes_med:18.9},
+    {cidade:"Sorocaba",       ano:2019,MP25_med:24.0,dias_acima_oms:251,internacoes_med:20.2},
+    {cidade:"Sorocaba",       ano:2020,MP25_med:23.5,dias_acima_oms:235,internacoes_med:20.5},
+    {cidade:"Sorocaba",       ano:2021,MP25_med:23.8,dias_acima_oms:242,internacoes_med:20.5},
+    {cidade:"Sorocaba",       ano:2022,MP25_med:22.9,dias_acima_oms:221,internacoes_med:20.0},
+    {cidade:"Sorocaba",       ano:2023,MP25_med:23.9,dias_acima_oms:238,internacoes_med:20.3},
+    {cidade:"São José dos Campos",ano:2019,MP25_med:25.4,dias_acima_oms:253,internacoes_med:20.6},
+    {cidade:"São José dos Campos",ano:2020,MP25_med:25.3,dias_acima_oms:247,internacoes_med:20.8},
+    {cidade:"São José dos Campos",ano:2021,MP25_med:25.8,dias_acima_oms:255,internacoes_med:20.9},
+    {cidade:"São José dos Campos",ano:2022,MP25_med:25.7,dias_acima_oms:249,internacoes_med:21.4},
+    {cidade:"São José dos Campos",ano:2023,MP25_med:24.9,dias_acima_oms:258,internacoes_med:20.8},
+  ],
+  sazonalidade: [
+    {mes:1,MP25:13.9,O3:68.1,NO2:15.2},{mes:2,MP25:15.3,O3:64.7,NO2:16.8},
+    {mes:3,MP25:18.8,O3:63.8,NO2:20.7},{mes:4,MP25:23.0,O3:62.0,NO2:24.1},
+    {mes:5,MP25:28.5,O3:59.0,NO2:27.5},{mes:6,MP25:34.2,O3:56.5,NO2:30.2},
+    {mes:7,MP25:38.5,O3:54.0,NO2:32.5},{mes:8,MP25:42.1,O3:58.5,NO2:33.1},
+    {mes:9,MP25:38.0,O3:65.0,NO2:30.0},{mes:10,MP25:26.0,O3:70.2,NO2:25.0},
+    {mes:11,MP25:18.0,O3:72.5,NO2:19.0},{mes:12,MP25:14.5,O3:69.8,NO2:15.5},
+  ],
+  mensal_sp: [
+    16.7,18.7,25.1,30.4,36.0,47.1,53.2,58.5,50.3,33.5,22.2,17.0,
+    15.2,17.0,24.0,28.8,35.5,45.0,51.8,56.2,48.0,32.0,21.0,16.0,
+    18.0,20.0,26.5,32.0,38.5,49.2,55.8,61.0,52.0,34.8,23.5,18.2,
+    16.5,19.2,25.8,31.0,37.0,47.8,54.0,59.5,51.0,33.0,22.0,17.5,
+    15.8,18.0,24.8,30.0,36.5,46.5,52.8,58.0,50.5,32.5,21.5,16.5,
+  ],
+  mensal_campinas: [
+    12.0,14.0,18.5,22.5,27.0,35.5,40.0,44.5,38.5,26.0,17.5,12.5,
+    11.5,13.5,17.8,21.5,26.5,34.8,39.5,43.8,38.0,25.5,17.0,12.0,
+    12.5,14.5,19.0,23.0,27.5,36.0,40.5,45.0,39.0,26.5,18.0,13.0,
+    12.2,14.2,18.8,22.8,27.2,35.8,40.2,44.8,38.8,26.2,17.8,12.8,
+    11.8,13.8,18.2,22.2,26.8,35.2,39.8,44.2,38.2,25.8,17.2,12.2,
+  ],
+};
+
+// ── Chart.js global defaults ─────────────────────────────────────────────────
+Chart.defaults.color = '#7d8590';
+Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+Chart.defaults.font.family = "'DM Sans', sans-serif";
+
+const meses = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+const anos  = [2019,2020,2021,2022,2023];
+let charts  = {};
+
+function destroyChart(id) { if(charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+// ── NAV ──────────────────────────────────────────────────────────────────────
+function showPage(id, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  btn.classList.add('active');
+  renderPage(id);
+}
+function renderPage(id) {
+  const renders = {
+    'visao-geral':    renderVisaoGeral,
+    'serie-temporal': renderSerieTemporal,
+    'sazonalidade':   renderSazonalidade,
+    'saude':          renderSaude,
+    'insights':       renderInsights,
+    'acoes':          renderAcoes,
+  };
+  if(renders[id]) renders[id]();
+}
+
+// ── VISÃO GERAL ──────────────────────────────────────────────────────────────
+function renderVisaoGeral() {
+  // OMS bars
+  const barsEl = document.getElementById('oms-bars');
+  const polLabels = ['MP25','MP10','NO2','CO','O3','SO2'];
+  barsEl.innerHTML = polLabels.map(p => {
+    const pct = DATA.pct_oms[p];
+    const cor = DATA.cores_pol[p];
+    return `<div class="oms-row">
+      <span class="oms-label">${p.replace('25','₂.₅').replace('10','₁₀').replace('O3','O₃').replace('NO2','NO₂').replace('CO','CO').replace('SO2','SO₂')}</span>
+      <div class="oms-track"><div class="oms-fill" style="width:${pct}%;background:${cor}"></div></div>
+      <span class="oms-pct" style="color:${cor}">${pct}%</span>
+    </div>`;
+  }).join('');
+
+  // MP25 por cidade
+  destroyChart('mp25-cidade');
+  charts['mp25-cidade'] = new Chart(document.getElementById('chart-mp25-cidade'), {
+    type:'bar',
+    data:{
+      labels: DATA.cidades.map(c => c.replace('São José dos Campos','SJC')),
+      datasets:[{
+        data: DATA.cidades.map(c => DATA.medias[c].MP25),
+        backgroundColor: DATA.cidades.map(c => DATA.cores[c] + 'cc'),
+        borderColor:     DATA.cidades.map(c => DATA.cores[c]),
+        borderWidth:1, borderRadius:5,
+      }]
+    },
+    options:{
+      plugins:{ legend:{display:false}, annotation:{} },
+      scales:{
+        y:{ beginAtZero:true, grid:{color:'rgba(255,255,255,0.05)'},
+            ticks:{color:'#7d8590'},
+            afterDraw(chart){
+              const ctx=chart.ctx, yScale=chart.scales.y;
+              const y=yScale.getPixelForValue(15);
+              ctx.save(); ctx.strokeStyle='#f85149'; ctx.lineWidth=1.5;
+              ctx.setLineDash([4,4]); ctx.beginPath();
+              ctx.moveTo(chart.chartArea.left,y); ctx.lineTo(chart.chartArea.right,y);
+              ctx.stroke(); ctx.restore();
+              ctx.fillStyle='#f85149'; ctx.font='10px DM Sans'; ctx.textAlign='right';
+              ctx.fillText('OMS: 15',chart.chartArea.right-4,y-4);
+            }
+          },
+        x:{ grid:{display:false}, ticks:{color:'#7d8590'} }
+      }
+    }
+  });
+
+  // Radar
+  destroyChart('radar');
+  charts['radar'] = new Chart(document.getElementById('chart-radar'), {
+    type:'radar',
+    data:{
+      labels:['MP2,5','MP10','O₃','NO₂','CO','SO₂'],
+      datasets: DATA.cidades.map(c => ({
+        label:c.replace('São José dos Campos','SJC'),
+        data: DATA.poluentes.map(p => Math.round((DATA.medias[c][p]/DATA.limites[p])*100)),
+        borderColor: DATA.cores[c], backgroundColor: DATA.cores[c]+'22',
+        pointBackgroundColor: DATA.cores[c], borderWidth:1.5, pointRadius:3,
+      }))
+    },
+    options:{
+      plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, padding:12, color:'#7d8590', font:{size:10} } } },
+      scales:{ r:{ beginAtZero:true, ticks:{display:false},
+        grid:{color:'rgba(255,255,255,0.07)'},
+        pointLabels:{color:'#7d8590',font:{size:10}},
+        suggestedMax:250,
+      }}
+    }
+  });
+
+  // Internações
+  destroyChart('internacoes');
+  charts['internacoes'] = new Chart(document.getElementById('chart-internacoes'), {
+    type:'bar',
+    data:{
+      labels: DATA.cidades.map(c => c.replace('São José dos Campos','SJC')),
+      datasets:[{
+        label:'Internações/dia',
+        data: DATA.cidades.map(c => DATA.medias[c].internacoes),
+        backgroundColor: DATA.cidades.map(c => DATA.cores[c]+'bb'),
+        borderColor: DATA.cidades.map(c => DATA.cores[c]),
+        borderWidth:1, borderRadius:5,
+      }]
+    },
+    options:{
+      indexAxis:'y',
+      plugins:{ legend:{display:false} },
+      scales:{
+        x:{ grid:{color:'rgba(255,255,255,0.05)'}, ticks:{color:'#7d8590'}, beginAtZero:true },
+        y:{ grid:{display:false}, ticks:{color:'#7d8590'} }
+      }
+    }
+  });
+}
+
+// ── SÉRIE TEMPORAL ───────────────────────────────────────────────────────────
+function renderSerieTemporal() {
+  // Build labels (60 months)
+  const labels = [];
+  for(let y=2019;y<=2023;y++) for(let m=1;m<=12;m++) labels.push(`${meses[m-1]}/${y.toString().slice(2)}`);
+
+  destroyChart('serie');
+  charts['serie'] = new Chart(document.getElementById('chart-serie'), {
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        { label:'São Paulo', data:DATA.mensal_sp, borderColor:'#f85149', backgroundColor:'transparent', borderWidth:2, pointRadius:0, tension:0.3 },
+        { label:'Campinas',  data:DATA.mensal_campinas, borderColor:'#fb8c00', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, tension:0.3 },
+      ]
+    },
+    options:{
+      plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, padding:16, color:'#7d8590', font:{size:11} } } },
+      scales:{
+        y:{ grid:{color:'rgba(255,255,255,0.05)'}, ticks:{color:'#7d8590'},
+            afterDraw(chart){
+              const ctx=chart.ctx, y=chart.scales.y.getPixelForValue(15);
+              ctx.save(); ctx.strokeStyle='#f85149'; ctx.lineWidth=1.2; ctx.setLineDash([3,3]);
+              ctx.beginPath(); ctx.moveTo(chart.chartArea.left,y); ctx.lineTo(chart.chartArea.right,y); ctx.stroke();
+              ctx.restore();
+            }
+          },
+        x:{ grid:{display:false}, ticks:{color:'#7d8590', maxTicksLimit:20} }
+      }
+    }
+  });
+
+  // Dias acima OMS
+  destroyChart('dias-oms');
+  charts['dias-oms'] = new Chart(document.getElementById('chart-dias-oms'), {
+    type:'bar',
+    data:{
+      labels: anos,
+      datasets: DATA.cidades.map(c => ({
+        label:c.replace('São José dos Campos','SJC'),
+        data: DATA.anual.filter(r=>r.cidade===c).map(r=>r.dias_acima_oms),
+        backgroundColor: DATA.cores[c]+'99', borderColor: DATA.cores[c], borderWidth:1, borderRadius:3,
+      }))
+    },
+    options:{
+      plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, padding:10, color:'#7d8590', font:{size:10} } } },
+      scales:{
+        y:{ grid:{color:'rgba(255,255,255,0.05)'}, ticks:{color:'#7d8590'}, beginAtZero:true },
+        x:{ grid:{display:false}, ticks:{color:'#7d8590'} }
+      }
+    }
+  });
+
+  // Tendência
+  destroyChart('tendencia');
+  charts['tendencia'] = new Chart(document.getElementById('chart-tendencia'), {
+    type:'line',
+    data:{
+      labels: anos,
+      datasets: DATA.cidades.map(c => ({
+        label:c.replace('São José dos Campos','SJC'),
+        data: DATA.anual.filter(r=>r.cidade===c).map(r=>r.MP25_med),
+        borderColor: DATA.cores[c], backgroundColor:'transparent',
+        borderWidth:2, pointRadius:4, pointBackgroundColor: DATA.cores[c], tension:0.2,
+      }))
+    },
+    options:{
+      plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, padding:10, color:'#7d8590', font:{size:10} } } },
+      scales:{
+        y:{ grid:{color:'rgba(255,255,255,0.05)'}, ticks:{color:'#7d8590'},
+          afterDraw(chart){
+            const ctx=chart.ctx, y=chart.scales.y.getPixelForValue(15);
+            ctx.save(); ctx.strokeStyle='#f85149'; ctx.lineWidth=1.2; ctx.setLineDash([4,4]);
+            ctx.beginPath(); ctx.moveTo(chart.chartArea.left,y); ctx.lineTo(chart.chartArea.right,y); ctx.stroke();
+            ctx.fillStyle='#f85149'; ctx.font='9px DM Sans'; ctx.fillText('OMS 15',chart.chartArea.right-36,y-3);
+            ctx.restore();
+          }
+        },
+        x:{ grid:{display:false}, ticks:{color:'#7d8590'} }
+      }
+    }
+  });
+}
+
+// ── SAZONALIDADE ─────────────────────────────────────────────────────────────
+function renderSazonalidade() {
+  const sazMP25 = DATA.sazonalidade.map(r=>r.MP25);
+  const sazO3   = DATA.sazonalidade.map(r=>r.O3);
+  const sazNO2  = DATA.sazonalidade.map(r=>r.NO2);
+
+  destroyChart('sazon-mp25');
+  charts['sazon-mp25'] = new Chart(document.getElementById('chart-sazon-mp25'), {
+    type:'bar',
+    data:{
+      labels:meses,
+      datasets:[{
+        label:'MP2,5 (μg/m³)',
+        data:sazMP25,
+        backgroundColor: meses.map((_,i) => (i>=7&&i<=8)?'#f85149dd':'#f8514966'),
+        borderColor: '#f85149', borderWidth:1, borderRadius:4,
+      }]
+    },
+    options:{
+      plugins:{ legend:{display:false},
+        tooltip:{ callbacks:{ afterLabel: ctx => ctx.dataIndex>=7&&ctx.dataIndex<=8?'⚑ Período de queimadas':'' } }
+      },
+      scales:{
+        y:{ grid:{color:'rgba(255,255,255,0.05)'}, ticks:{color:'#7d8590'},
+          afterDraw(chart){
+            const ctx=chart.ctx, y=chart.scales.y.getPixelForValue(15);
+            ctx.save(); ctx.strokeStyle='#f85149'; ctx.lineWidth=1.5; ctx.setLineDash([4,4]);
+            ctx.beginPath(); ctx.moveTo(chart.chartArea.left,y); ctx.lineTo(chart.chartArea.right,y); ctx.stroke();
+            ctx.fillStyle='#f85149'; ctx.font='10px DM Sans'; ctx.fillText('OMS 15',chart.chartArea.right-40,y-4);
+            ctx.restore();
+          }
+        },
+        x:{ grid:{display:false}, ticks:{color:'#7d8590'} }
+      }
+    }
+  });
+
+  destroyChart('sazon-o3');
+  charts['sazon-o3'] = new Chart(document.getElementById('chart-sazon-o3'), {
+    type:'line',
+    data:{
+      labels:meses,
+      datasets:[
+        { label:'Ozônio (μg/m³)', data:sazO3, borderColor:'#bc8cff', backgroundColor:'#bc8cff22', fill:true, borderWidth:2, pointRadius:4, tension:0.3 },
+        { label:'NO₂ (μg/m³)',    data:sazNO2, borderColor:'#58a6ff', backgroundColor:'transparent', borderWidth:1.5, pointRadius:3, tension:0.3 },
+      ]
+    },
+    options:{
+      plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, padding:12, color:'#7d8590', font:{size:10} } } },
+      scales:{
+        y:{ grid:{color:'rgba(255,255,255,0.05)'}, ticks:{color:'#7d8590'} },
+        x:{ grid:{display:false}, ticks:{color:'#7d8590'} }
+      }
+    }
+  });
+
+  destroyChart('fds');
+  charts['fds'] = new Chart(document.getElementById('chart-fds'), {
+    type:'bar',
+    data:{
+      labels:["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"],
+      datasets:[
+        { label:'NO₂ (μg/m³)', data:[28.5,28.2,28.1,28.3,27.8,20.2,19.6], backgroundColor:['#58a6ff99','#58a6ff99','#58a6ff99','#58a6ff99','#58a6ff99','#3fb95099','#3fb95099'], borderColor:['#58a6ff','#58a6ff','#58a6ff','#58a6ff','#58a6ff','#3fb950','#3fb950'], borderWidth:1, borderRadius:4 },
+      ]
+    },
+    options:{
+      plugins:{ legend:{display:false} },
+      scales:{
+        y:{ grid:{color:'rgba(255,255,255,0.05)'}, ticks:{color:'#7d8590'}, beginAtZero:true },
+        x:{ grid:{display:false}, ticks:{ color: ctx => ctx.index>=5?'#3fb950':'#7d8590' } }
+      }
+    }
+  });
+}
+
+// ── SAÚDE ────────────────────────────────────────────────────────────────────
+function renderSaude() {
+  // Scatter mensal
+  const scatterData = [];
+  const mp25_vals = [13.9,15.3,18.8,23.0,28.5,34.2,38.5,42.1,38.0,26.0,18.0,14.5];
+  const int_vals  = [14.8,15.5,17.0,19.2,21.5,24.5,27.5,30.0,27.0,20.5,16.5,15.0];
+  for(let i=0;i<12;i++) scatterData.push({x:mp25_vals[i], y:int_vals[i]});
+
+  destroyChart('scatter');
+  charts['scatter'] = new Chart(document.getElementById('chart-scatter'), {
+    type:'scatter',
+    data:{
+      datasets:[{
+        label:'Média mensal',
+        data: scatterData,
+        backgroundColor:'#58a6ff88', borderColor:'#58a6ff', pointRadius:6,
+      },{
+        label:'Tendência linear',
+        data:[{x:13,y:14.5},{x:43,y:30.5}],
+        type:'line', borderColor:'#f85149', borderWidth:1.5, borderDash:[4,4], pointRadius:0, fill:false,
+      }]
+    },
+    options:{
+      plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, padding:12, color:'#7d8590', font:{size:10} } } },
+      scales:{
+        x:{ grid:{color:'rgba(255,255,255,0.05)'}, ticks:{color:'#7d8590'}, title:{display:true,text:'MP2,5 médio mensal (μg/m³)',color:'#7d8590',font:{size:10}} },
+        y:{ grid:{color:'rgba(255,255,255,0.05)'}, ticks:{color:'#7d8590'}, title:{display:true,text:'Internações médias/dia',color:'#7d8590',font:{size:10}} }
+      }
+    }
+  });
+
+  destroyChart('intern-anual');
+  charts['intern-anual'] = new Chart(document.getElementById('chart-intern-anual'), {
+    type:'line',
+    data:{
+      labels: anos,
+      datasets: DATA.cidades.map(c => ({
+        label:c.replace('São José dos Campos','SJC'),
+        data: DATA.anual.filter(r=>r.cidade===c).map(r=>r.internacoes_med),
+        borderColor: DATA.cores[c], backgroundColor:'transparent',
+        borderWidth:2, pointRadius:4, pointBackgroundColor: DATA.cores[c], tension:0.2,
+      }))
+    },
+    options:{
+      plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, padding:10, color:'#7d8590', font:{size:10} } } },
+      scales:{
+        y:{ grid:{color:'rgba(255,255,255,0.05)'}, ticks:{color:'#7d8590'} },
+        x:{ grid:{display:false}, ticks:{color:'#7d8590'} }
+      }
+    }
+  });
+
+  destroyChart('fds-saude');
+  charts['fds-saude'] = new Chart(document.getElementById('chart-fds-saude'), {
+    type:'bar',
+    data:{
+      labels:['NO₂ — Dias úteis','NO₂ — Fim de semana','CO — Dias úteis','CO — Fim de semana'],
+      datasets:[{
+        data:[28.0,19.9,2.7,1.8],
+        backgroundColor:['#58a6ff99','#3fb95099','#58a6ff99','#3fb95099'],
+        borderColor:['#58a6ff','#3fb950','#58a6ff','#3fb950'],
+        borderWidth:1, borderRadius:5,
+      }]
+    },
+    options:{
+      plugins:{ legend:{display:false},
+        tooltip:{ callbacks:{ afterLabel: ctx => {
+          const reds=[28.9,28.9,33.3,33.3];
+          return ctx.dataIndex%2===1?`↓ −${reds[ctx.dataIndex]}% vs dias úteis`:'';
+        }}}
+      },
+      scales:{
+        y:{ grid:{color:'rgba(255,255,255,0.05)'}, ticks:{color:'#7d8590'}, beginAtZero:true },
+        x:{ grid:{display:false}, ticks:{color:'#7d8590'} }
+      }
+    }
+  });
+}
+
+// ── INSIGHTS ─────────────────────────────────────────────────────────────────
+function renderInsights() {
+  // Ultrapassagens por cidade e poluente (MP25 e MP10)
+  const pctCidade = {
+    "São Paulo":     { MP25:89, MP10:62 },
+    "Campinas":      { MP25:72, MP10:46 },
+    "Santos":        { MP25:44, MP10:32 },
+    "Sorocaba":      { MP25:62, MP10:40 },
+    "São José dos Campos":{ MP25:68, MP10:43 },
+  };
+
+  destroyChart('ultrapassagens');
+  charts['ultrapassagens'] = new Chart(document.getElementById('chart-ultrapassagens'), {
+    type:'bar',
+    data:{
+      labels: DATA.cidades.map(c=>c.replace('São José dos Campos','SJC')),
+      datasets:[
+        { label:'MP2,5 > OMS',  data: DATA.cidades.map(c=>pctCidade[c].MP25), backgroundColor:'#f8514999', borderColor:'#f85149', borderWidth:1, borderRadius:3 },
+        { label:'MP10 > OMS',   data: DATA.cidades.map(c=>pctCidade[c].MP10), backgroundColor:'#fb8c0099', borderColor:'#fb8c00', borderWidth:1, borderRadius:3 },
+      ]
+    },
+    options:{
+      plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, padding:12, color:'#7d8590', font:{size:10} } } },
+      scales:{
+        y:{ grid:{color:'rgba(255,255,255,0.05)'}, ticks:{color:'#7d8590',callback:v=>v+'%'}, max:100, beginAtZero:true },
+        x:{ grid:{display:false}, ticks:{color:'#7d8590'} }
+      }
+    }
+  });
+
+  // Matriz urgência vs impacto
+  destroyChart('matriz');
+  charts['matriz'] = new Chart(document.getElementById('chart-matriz'), {
+    type:'bubble',
+    data:{
+      datasets:[
+        { label:'Exposição crônica SP',       data:[{x:9,y:9,r:14}], backgroundColor:'#f8514966', borderColor:'#f85149' },
+        { label:'Dias acima OMS (70,5%)',      data:[{x:8,y:8,r:12}], backgroundColor:'#fb8c0066', borderColor:'#fb8c00' },
+        { label:'Queimadas sazonais',          data:[{x:6,y:7,r:10}], backgroundColor:'#58a6ff66', borderColor:'#58a6ff' },
+        { label:'Tráfego veicular',            data:[{x:9,y:8,r:12}], backgroundColor:'#3fb95066', borderColor:'#3fb950' },
+        { label:'Impacto na saúde (r=0,38)',   data:[{x:7,y:9,r:13}], backgroundColor:'#bc8cff66', borderColor:'#bc8cff' },
+        { label:'Sazonalidade O₃',            data:[{x:5,y:6,r:9}],  backgroundColor:'#39d35366', borderColor:'#39d353' },
+      ]
+    },
+    options:{
+      plugins:{ legend:{ position:'bottom', labels:{ boxWidth:8, padding:8, color:'#7d8590', font:{size:9} } } },
+      scales:{
+        x:{ min:3,max:11, grid:{color:'rgba(255,255,255,0.05)'}, ticks:{color:'#7d8590'}, title:{display:true,text:'Urgência de atuação →',color:'#7d8590',font:{size:10}} },
+        y:{ min:3,max:11, grid:{color:'rgba(255,255,255,0.05)'}, ticks:{color:'#7d8590'}, title:{display:true,text:'Impacto potencial →',color:'#7d8590',font:{size:10}} }
+      }
+    }
+  });
+}
+
+// ── AÇÕES ────────────────────────────────────────────────────────────────────
+function renderAcoes() {
+  destroyChart('acoes-prazo');
+  charts['acoes-prazo'] = new Chart(document.getElementById('chart-acoes-prazo'), {
+    type:'doughnut',
+    data:{
+      labels:['Curto prazo (3 ações)','Médio prazo (3 ações)','Longo prazo (2 ações)'],
+      datasets:[{
+        data:[3,3,2],
+        backgroundColor:['#3fb95099','#58a6ff99','#bc8cff99'],
+        borderColor:['#3fb950','#58a6ff','#bc8cff'],
+        borderWidth:1.5,
+      }]
+    },
+    options:{
+      plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, padding:12, color:'#7d8590', font:{size:11} } } },
+      cutout:'60%',
+    }
+  });
+
+  destroyChart('reducao');
+  charts['reducao'] = new Chart(document.getElementById('chart-reducao'), {
+    type:'bar',
+    data:{
+      labels:['Tráfego / Frotas','Queimadas','ZBE urbana','Elétrico / Ciclo','Arborização'],
+      datasets:[{
+        label:'Redução estimada de MP2,5 (%)',
+        data:[22,20,12,8,5],
+        backgroundColor:['#3fb95099','#58a6ff99','#fb8c0099','#bc8cff99','#39d35399'],
+        borderColor:['#3fb950','#58a6ff','#fb8c00','#bc8cff','#39d353'],
+        borderWidth:1, borderRadius:5,
+      }]
+    },
+    options:{
+      indexAxis:'y',
+      plugins:{ legend:{display:false} },
+      scales:{
+        x:{ grid:{color:'rgba(255,255,255,0.05)'}, ticks:{color:'#7d8590',callback:v=>v+'%'}, beginAtZero:true },
+        y:{ grid:{display:false}, ticks:{color:'#7d8590'} }
+      }
+    }
+  });
+}
+
+// ── City filter (série temporal placeholder) ──────────────────────────────────
+function setCity(cidade, btn) {
+  document.querySelectorAll('.filter-bar .filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+renderVisaoGeral();
+</script>
+</body>
+</html>
